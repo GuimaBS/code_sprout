@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'data/app_data.dart';
 import 'models/exercise_model.dart';
 import 'models/learning_module.dart';
+import 'models/diagram_model.dart';
+import 'widgets/exercise_board_editor.dart';
+import 'widgets/exercise_answer_editor.dart';
 
 class CreateExercisePage extends StatefulWidget {
   const CreateExercisePage({super.key});
@@ -25,6 +28,14 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
 
   final GlobalKey<FormState> _formKey =
   GlobalKey<FormState>();
+
+  List<BoardElement> _boardElements = <BoardElement>[];
+
+  List<ExerciseAlternative> _alternatives =
+  <ExerciseAlternative>[];
+
+  Map<String, String> _answerPlacements =
+  <String, String>{};
 
   final TextEditingController _titleController =
   TextEditingController();
@@ -304,6 +315,10 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
         _formKey.currentState?.validate() ?? false;
 
     if (!valid) {
+      _showMessage(
+        'Preencha corretamente os campos obrigatórios.',
+        isError: true,
+      );
       return;
     }
 
@@ -315,8 +330,59 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
       return;
     }
 
+    if (_boardElements.isEmpty) {
+      _showMessage(
+        'Adicione pelo menos uma forma ao quadro.',
+        isError: true,
+      );
+      return;
+    }
+
+    final List<BoardElement> boardTargets =
+    _boardElements.where(
+          (BoardElement element) {
+        return element.type ==
+            BoardElementType.flowchartShape;
+      },
+    ).toList();
+
+    if (boardTargets.isEmpty) {
+      _showMessage(
+        'O quadro precisa possuir pelo menos uma '
+            'forma de fluxograma.',
+        isError: true,
+      );
+      return;
+    }
+
+    if (_alternatives.isEmpty) {
+      _showMessage(
+        'Cadastre pelo menos uma alternativa.',
+        isError: true,
+      );
+      return;
+    }
+
+    final bool incompleteAnswerKey =
+    boardTargets.any(
+          (BoardElement element) {
+        return !_answerPlacements.containsKey(
+          element.id,
+        );
+      },
+    );
+
+    if (incompleteAnswerKey) {
+      _showMessage(
+        'Selecione a resposta correta para todas '
+            'as formas do quadro.',
+        isError: true,
+      );
+      return;
+    }
+
     _showMessage(
-      'Informações validadas. Agora monte o quadro e o gabarito.',
+      'Quadro e gabarito validados corretamente.',
     );
   }
 
@@ -463,7 +529,9 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
                             const SizedBox(height: 18),
                             _buildLanguageSection(),
                             const SizedBox(height: 30),
-                            _buildBoardPlaceholder(),
+                            _buildBoardEditor(),
+                            const SizedBox(height: 28),
+                            _buildAnswerEditor(),
                             const SizedBox(height: 28),
                             Row(
                               children: <Widget>[
@@ -808,50 +876,46 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
     );
   }
 
-  Widget _buildBoardPlaceholder() {
-    return Container(
-      constraints: const BoxConstraints(
-        minHeight: 190,
-      ),
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: const Color(0xFF104B50),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: _white.withValues(alpha: 0.7),
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          const Icon(
-            Icons.account_tree_outlined,
-            color: _green,
-            size: 55,
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'Quadro da atividade',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: _white,
-              fontSize: 21,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'A biblioteca de formas, as alternativas e o '
-                'gabarito serão adicionados na próxima etapa.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: _white.withValues(alpha: 0.7),
-              fontSize: 14,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
+  Widget _buildBoardEditor() {
+    return ExerciseBoardEditor(
+      initialElements: _boardElements,
+      onChanged: (List<BoardElement> elements) {
+        final Set<String> validElementIds = elements
+            .map((BoardElement element) => element.id)
+            .toSet();
+
+        setState(() {
+          _boardElements =
+          List<BoardElement>.from(elements);
+
+          _answerPlacements.removeWhere(
+                (
+                String targetId,
+                String alternativeId,
+                ) {
+              return !validElementIds.contains(targetId);
+            },
+          );
+        });
+      },
+    );
+  }
+
+  Widget _buildAnswerEditor() {
+    return ExerciseAnswerEditor(
+      boardElements: _boardElements,
+      initialAlternatives: _alternatives,
+      initialPlacements: _answerPlacements,
+      onChanged: (
+          List<ExerciseAlternative> alternatives,
+          Map<String, String> placements,
+          ) {
+        _alternatives =
+        List<ExerciseAlternative>.from(alternatives);
+
+        _answerPlacements =
+        Map<String, String>.from(placements);
+      },
     );
   }
 

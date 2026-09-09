@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'create_exercise_page.dart';
 
 class AdminPage extends StatelessWidget {
   final WidgetBuilder homeBuilder;
@@ -67,9 +68,12 @@ class AdminPage extends StatelessWidget {
                     description:
                     'Cadastre comandos, opções, gabaritos e dicas dos exercícios.',
                     onTap: () {
-                      _showMessage(
-                        context,
-                        'O editor de questões será construído na próxima etapa.',
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (BuildContext context) {
+                            return const CreateExercisePage();
+                          },
+                        ),
                       );
                     },
                   ),
