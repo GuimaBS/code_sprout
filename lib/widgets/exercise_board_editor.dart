@@ -32,6 +32,57 @@ class _ExerciseBoardEditorState
   static const Color _white = Color(0xFFF7F7F2);
   static const Color _border = Color(0xFF087B50);
 
+  static const List<_ShapeGroup> _shapeGroups =
+  <_ShapeGroup>[
+    _ShapeGroup(
+      title: 'Fluxo básico',
+      icon: Icons.account_tree_outlined,
+      types: <FlowchartShapeType>[
+        FlowchartShapeType.startEnd,
+        FlowchartShapeType.process,
+        FlowchartShapeType.decision,
+        FlowchartShapeType.inputOutput,
+      ],
+    ),
+    _ShapeGroup(
+      title: 'Processos e operações',
+      icon: Icons.settings_outlined,
+      types: <FlowchartShapeType>[
+        FlowchartShapeType.predefinedProcess,
+        FlowchartShapeType.manualInput,
+        FlowchartShapeType.manualOperation,
+        FlowchartShapeType.preparation,
+      ],
+    ),
+    _ShapeGroup(
+      title: 'Documentos e armazenamento',
+      icon: Icons.storage_outlined,
+      types: <FlowchartShapeType>[
+        FlowchartShapeType.document,
+        FlowchartShapeType.multipleDocuments,
+        FlowchartShapeType.database,
+        FlowchartShapeType.storedData,
+      ],
+    ),
+    _ShapeGroup(
+      title: 'Conectores e continuidade',
+      icon: Icons.route_outlined,
+      types: <FlowchartShapeType>[
+        FlowchartShapeType.connector,
+        FlowchartShapeType.offPageConnector,
+        FlowchartShapeType.delay,
+      ],
+    ),
+    _ShapeGroup(
+      title: 'Exibição e apoio',
+      icon: Icons.visibility_outlined,
+      types: <FlowchartShapeType>[
+        FlowchartShapeType.display,
+        FlowchartShapeType.annotation,
+      ],
+    ),
+  ];
+
   final GlobalKey _boardKey = GlobalKey();
 
   late List<BoardElement> _elements;
@@ -361,7 +412,8 @@ class _ExerciseBoardEditorState
         ),
         const SizedBox(height: 7),
         Text(
-          'Arraste uma forma da biblioteca para o quadro.',
+    'Escolha entre as 17 formas disponíveis e '
+    'arraste-a para o quadro.',
           style: TextStyle(
             color: _white.withValues(alpha: 0.68),
             fontSize: 14,
@@ -409,29 +461,125 @@ class _ExerciseBoardEditorState
   }
 
   Widget _buildShapeLibrary() {
-    return SizedBox(
-      height: 154,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: FlowchartShapeCatalog.all.length,
-        separatorBuilder: (
-            BuildContext context,
-            int index,
-            ) {
-          return const SizedBox(width: 12);
-        },
-        itemBuilder: (
-            BuildContext context,
-            int index,
-            ) {
-          final FlowchartShapeDefinition definition =
-          FlowchartShapeCatalog.all[index];
-
-          return _buildDraggableLibraryItem(
-            definition,
-          );
-        },
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: _panel,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Icon(
+                Icons.dashboard_customize_outlined,
+                color: _green,
+                size: 23,
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  '${FlowchartShapeCatalog.all.length} '
+                      'formas disponíveis',
+                  style: const TextStyle(
+                    color: _white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          for (int index = 0;
+          index < _shapeGroups.length;
+          index++) ...<Widget>[
+            _buildShapeGroup(_shapeGroups[index]),
+            if (index < _shapeGroups.length - 1)
+              const SizedBox(height: 22),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShapeGroup(_ShapeGroup group) {
+    final List<FlowchartShapeDefinition> definitions =
+    <FlowchartShapeDefinition>[];
+
+    for (final FlowchartShapeType type in group.types) {
+      final FlowchartShapeDefinition? definition =
+      FlowchartShapeCatalog.findByType(type);
+
+      if (definition != null) {
+        definitions.add(definition);
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Icon(
+              group.icon,
+              color: _green,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              group.title,
+              style: const TextStyle(
+                color: _white,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (
+              BuildContext context,
+              BoxConstraints constraints,
+              ) {
+            final int columns;
+
+            if (constraints.maxWidth >= 520) {
+              columns = 4;
+            } else if (constraints.maxWidth >= 350) {
+              columns = 3;
+            } else {
+              columns = 2;
+            }
+
+            const double spacing = 10;
+
+            final double itemWidth =
+                (constraints.maxWidth -
+                    (spacing * (columns - 1))) /
+                    columns;
+
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: definitions.map(
+                    (FlowchartShapeDefinition definition) {
+                  return SizedBox(
+                    width: itemWidth,
+                    height: 142,
+                    child: _buildDraggableLibraryItem(
+                      definition,
+                    ),
+                  );
+                },
+              ).toList(),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -439,7 +587,6 @@ class _ExerciseBoardEditorState
       FlowchartShapeDefinition definition,
       ) {
     final Widget card = Container(
-      width: 132,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: _panel,
@@ -735,4 +882,16 @@ class _ExerciseBoardEditorState
       ),
     );
   }
+}
+
+class _ShapeGroup {
+  final String title;
+  final IconData icon;
+  final List<FlowchartShapeType> types;
+
+  const _ShapeGroup({
+    required this.title,
+    required this.icon,
+    required this.types,
+  });
 }

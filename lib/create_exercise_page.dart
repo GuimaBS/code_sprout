@@ -37,9 +37,6 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
   Map<String, String> _answerPlacements =
   <String, String>{};
 
-  final TextEditingController _titleController =
-  TextEditingController();
-
   final TextEditingController _statementController =
   TextEditingController();
 
@@ -66,6 +63,36 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
   bool _languageEnabled = false;
   bool _contentVisible = false;
 
+  int get _nextExerciseOrder {
+    final String? moduleId = _selectedModuleId;
+
+    if (moduleId == null) {
+      return 1;
+    }
+
+    final LearningModule? selectedModule =
+    moduleStore.findModule(moduleId);
+
+    if (selectedModule == null) {
+      return 1;
+    }
+
+    int nextOrder = 1;
+
+    for (final ExerciseModel exercise
+    in selectedModule.exercises) {
+      if (exercise.order >= nextOrder) {
+        nextOrder = exercise.order + 1;
+      }
+    }
+
+    return nextOrder;
+  }
+
+  String get _automaticLessonTitle {
+    return 'Lição $_nextExerciseOrder';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -91,7 +118,6 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
 
   @override
   void dispose() {
-    _titleController.dispose();
     _statementController.dispose();
     _hintController.dispose();
     _subjectController.dispose();
@@ -470,19 +496,17 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
                               Icons.assignment_outlined,
                             ),
                             const SizedBox(height: 14),
-                            _buildTextField(
-                              controller:
-                              _titleController,
-                              label: 'Título',
-                              hint: 'Exemplo: Exercício 2',
+                            _buildSectionTitle(
+                              'Identificação',
+                              Icons.assignment_outlined,
                             ),
+                            const SizedBox(height: 14),
+                            _buildAutomaticTitleCard(),
                             const SizedBox(height: 16),
                             _buildTextField(
-                              controller:
-                              _statementController,
+                              controller: _statementController,
                               label: 'Enunciado',
-                              hint:
-                              'Informe o comando da questão.',
+                              hint: 'Informe o comando da questão.',
                               maxLines: 4,
                             ),
                             const SizedBox(height: 16),
@@ -659,6 +683,63 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAutomaticTitleCard() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 15,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF104B50),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 43,
+            height: 43,
+            decoration: BoxDecoration(
+              color: _green.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+              border: Border.all(color: _green),
+            ),
+            child: const Icon(
+              Icons.auto_awesome_rounded,
+              color: _green,
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Título automático',
+                  style: TextStyle(
+                    color: _green,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _automaticLessonTitle,
+                  style: const TextStyle(
+                    color: _white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
