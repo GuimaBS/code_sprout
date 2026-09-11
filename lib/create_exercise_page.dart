@@ -4,8 +4,7 @@ import 'data/app_data.dart';
 import 'models/exercise_model.dart';
 import 'models/learning_module.dart';
 import 'models/diagram_model.dart';
-import 'widgets/exercise_board_editor.dart';
-import 'widgets/exercise_answer_editor.dart';
+import 'exercise_board_workspace_page.dart';
 
 class CreateExercisePage extends StatefulWidget {
   const CreateExercisePage({super.key});
@@ -496,13 +495,6 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
                               Icons.assignment_outlined,
                             ),
                             const SizedBox(height: 14),
-                            _buildSectionTitle(
-                              'Identificação',
-                              Icons.assignment_outlined,
-                            ),
-                            const SizedBox(height: 14),
-                            _buildAutomaticTitleCard(),
-                            const SizedBox(height: 16),
                             _buildTextField(
                               controller: _statementController,
                               label: 'Enunciado',
@@ -553,9 +545,7 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
                             const SizedBox(height: 18),
                             _buildLanguageSection(),
                             const SizedBox(height: 30),
-                            _buildBoardEditor(),
-                            const SizedBox(height: 28),
-                            _buildAnswerEditor(),
+                            _buildBoardWorkspaceCard(),
                             const SizedBox(height: 28),
                             Row(
                               children: <Widget>[
@@ -683,63 +673,6 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildAutomaticTitleCard() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 15,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFF104B50),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border),
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 43,
-            height: 43,
-            decoration: BoxDecoration(
-              color: _green.withValues(alpha: 0.14),
-              shape: BoxShape.circle,
-              border: Border.all(color: _green),
-            ),
-            child: const Icon(
-              Icons.auto_awesome_rounded,
-              color: _green,
-            ),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
-              children: <Widget>[
-                const Text(
-                  'Título automático',
-                  style: TextStyle(
-                    color: _green,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  _automaticLessonTitle,
-                  style: const TextStyle(
-                    color: _white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -957,46 +890,276 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
     );
   }
 
-  Widget _buildBoardEditor() {
-    return ExerciseBoardEditor(
-      initialElements: _boardElements,
-      onChanged: (List<BoardElement> elements) {
-        final Set<String> validElementIds = elements
-            .map((BoardElement element) => element.id)
-            .toSet();
+  Future<void> _openBoardWorkspace() async {
+    FocusScope.of(context).unfocus();
 
-        setState(() {
-          _boardElements =
-          List<BoardElement>.from(elements);
-
-          _answerPlacements.removeWhere(
-                (
-                String targetId,
-                String alternativeId,
-                ) {
-              return !validElementIds.contains(targetId);
-            },
+    final ExerciseBoardWorkspaceResult? result =
+    await Navigator.of(context)
+        .push<ExerciseBoardWorkspaceResult>(
+      MaterialPageRoute<ExerciseBoardWorkspaceResult>(
+        builder: (BuildContext context) {
+          return ExerciseBoardWorkspacePage(
+            initialElements: _boardElements,
+            initialAlternatives: _alternatives,
+            initialPlacements: _answerPlacements,
           );
-        });
-      },
+        },
+      ),
+    );
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    setState(() {
+      _boardElements =
+      List<BoardElement>.from(result.elements);
+
+      _alternatives =
+      List<ExerciseAlternative>.from(
+        result.alternatives,
+      );
+
+      _answerPlacements =
+      Map<String, String>.from(
+        result.placements,
+      );
+    });
+
+    _showMessage(
+      'Quadro e gabarito atualizados.',
     );
   }
 
-  Widget _buildAnswerEditor() {
-    return ExerciseAnswerEditor(
-      boardElements: _boardElements,
-      initialAlternatives: _alternatives,
-      initialPlacements: _answerPlacements,
-      onChanged: (
-          List<ExerciseAlternative> alternatives,
-          Map<String, String> placements,
-          ) {
-        _alternatives =
-        List<ExerciseAlternative>.from(alternatives);
-
-        _answerPlacements =
-        Map<String, String>.from(placements);
+  Widget _buildBoardWorkspaceCard() {
+    final int targetCount = _boardElements.where(
+          (BoardElement element) {
+        return element.type ==
+            BoardElementType.flowchartShape;
       },
+    ).length;
+
+    final int answeredCount = _boardElements.where(
+          (BoardElement element) {
+        return element.type ==
+            BoardElementType.flowchartShape &&
+            _answerPlacements.containsKey(element.id);
+      },
+    ).length;
+
+    final bool configured =
+        targetCount > 0 &&
+            _alternatives.isNotEmpty &&
+            answeredCount == targetCount;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _buildSectionTitle(
+          'Quadro da atividade',
+          Icons.account_tree_outlined,
+        ),
+        const SizedBox(height: 14),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _openBoardWorkspace,
+            borderRadius: BorderRadius.circular(15),
+            child: Ink(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: _panel,
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: configured ? _green : _border,
+                  width: configured ? 2 : 1.5,
+                ),
+              ),
+              child: Column(
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Container(
+                        width: 55,
+                        height: 55,
+                        decoration: BoxDecoration(
+                          color: _green.withValues(
+                            alpha: 0.12,
+                          ),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _green,
+                          ),
+                        ),
+                        child: Icon(
+                          configured
+                              ? Icons.check_rounded
+                              : Icons.edit_outlined,
+                          color: _green,
+                          size: 29,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              configured
+                                  ? 'Quadro configurado'
+                                  : 'Toque para montar o quadro',
+                              style: const TextStyle(
+                                color: _white,
+                                fontSize: 17,
+                                fontWeight:
+                                FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              configured
+                                  ? 'Toque para continuar editando.'
+                                  : 'Adicione formas, textos e respostas.',
+                              style: TextStyle(
+                                color: _white.withValues(
+                                  alpha: 0.62,
+                                ),
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: _green,
+                        size: 21,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 17),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Container(
+                          padding:
+                          const EdgeInsets.symmetric(
+                            vertical: 11,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF104B50),
+                            borderRadius:
+                            BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            children: <Widget>[
+                              Text(
+                                '${_boardElements.length}',
+                                style: const TextStyle(
+                                  color: _green,
+                                  fontSize: 20,
+                                  fontWeight:
+                                  FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                _boardElements.length == 1
+                                    ? 'elemento'
+                                    : 'elementos',
+                                style: TextStyle(
+                                  color: _white.withValues(
+                                    alpha: 0.62,
+                                  ),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          padding:
+                          const EdgeInsets.symmetric(
+                            vertical: 11,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF104B50),
+                            borderRadius:
+                            BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            children: <Widget>[
+                              Text(
+                                '${_alternatives.length}',
+                                style: const TextStyle(
+                                  color: _green,
+                                  fontSize: 20,
+                                  fontWeight:
+                                  FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                _alternatives.length == 1
+                                    ? 'alternativa'
+                                    : 'alternativas',
+                                style: TextStyle(
+                                  color: _white.withValues(
+                                    alpha: 0.62,
+                                  ),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          padding:
+                          const EdgeInsets.symmetric(
+                            vertical: 11,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF104B50),
+                            borderRadius:
+                            BorderRadius.circular(10),
+                          ),
+                          child: Column(
+                            children: <Widget>[
+                              Text(
+                                '$answeredCount/$targetCount',
+                                style: const TextStyle(
+                                  color: _green,
+                                  fontSize: 20,
+                                  fontWeight:
+                                  FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                'gabarito',
+                                style: TextStyle(
+                                  color: _white.withValues(
+                                    alpha: 0.62,
+                                  ),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
