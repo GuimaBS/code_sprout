@@ -157,25 +157,6 @@ class _LoginPageState extends State<LoginPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                const Text(
-                  'Acesso administrativo',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _white,
-                    fontSize: 25,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  'Entre para configurar e visualizar o protótipo.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _white.withValues(alpha: 0.72),
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 24),
                 TextFormField(
                   controller: _userController,
                   textInputAction: TextInputAction.next,
@@ -183,7 +164,7 @@ class _LoginPageState extends State<LoginPage>
                   style: const TextStyle(color: _white),
                   decoration: _fieldDecoration(
                     label: 'Usuário',
-                    icon: Icons.admin_panel_settings_outlined,
+                    icon: Icons.person_outline_rounded,
                   ),
                   validator: (String? value) {
                     if (value == null || value.trim().isEmpty) {
@@ -240,14 +221,6 @@ class _LoginPageState extends State<LoginPage>
                   ),
                   child: const Column(
                     children: <Widget>[
-                      Text(
-                        'Acesso demonstrativo',
-                        style: TextStyle(
-                          color: _green,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      SizedBox(height: 5),
                       SelectableText(
                         'Usuário: admin  •  Senha: codesprout123',
                         textAlign: TextAlign.center,

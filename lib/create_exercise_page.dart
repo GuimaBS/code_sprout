@@ -333,7 +333,7 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
     );
   }
 
-  void _validateBasicInformation() {
+  void _saveExercise() {
     FocusScope.of(context).unfocus();
 
     final bool valid =
@@ -347,7 +347,9 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
       return;
     }
 
-    if (_selectedModuleId == null) {
+    final String? moduleId = _selectedModuleId;
+
+    if (moduleId == null) {
       _showMessage(
         'Selecione ou crie um módulo.',
         isError: true,
@@ -364,17 +366,16 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
     }
 
     final List<BoardElement> boardTargets =
-    _boardElements.where(
-          (BoardElement element) {
-        return element.type ==
-            BoardElementType.flowchartShape;
-      },
-    ).toList();
+    _boardElements.where((BoardElement element) {
+      return element.type ==
+          BoardElementType.flowchartShape &&
+          element.acceptsDrop;
+    }).toList();
 
     if (boardTargets.isEmpty) {
       _showMessage(
         'O quadro precisa possuir pelo menos uma '
-            'forma de fluxograma.',
+            'forma que aceite respostas.',
         isError: true,
       );
       return;
@@ -389,13 +390,9 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
     }
 
     final bool incompleteAnswerKey =
-    boardTargets.any(
-          (BoardElement element) {
-        return !_answerPlacements.containsKey(
-          element.id,
-        );
-      },
-    );
+    boardTargets.any((BoardElement element) {
+      return !_answerPlacements.containsKey(element.id);
+    });
 
     if (incompleteAnswerKey) {
       _showMessage(
@@ -406,8 +403,92 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
       return;
     }
 
+    final Set<String> alternativeIds = _alternatives
+        .map((ExerciseAlternative alternative) {
+      return alternative.id;
+    }).toSet();
+
+    final bool hasInvalidAnswer =
+    _answerPlacements.values.any((String alternativeId) {
+      return !alternativeIds.contains(alternativeId);
+    });
+
+    if (hasInvalidAnswer) {
+      _showMessage(
+        'O gabarito contém uma alternativa inválida.',
+        isError: true,
+      );
+      return;
+    }
+
+    // A ordem é calculada antes da inclusão no módulo.
+    final int exerciseOrder = _nextExerciseOrder;
+
+    final ExerciseModel newExercise = ExerciseModel(
+      id: moduleStore.createId('exercise'),
+      moduleId: moduleId,
+
+      // O título existe apenas para organização interna.
+      title: _automaticLessonTitle,
+
+      statement: _statementController.text.trim(),
+      hint: _hintController.text.trim(),
+      subject: _subjectController.text.trim(),
+      programmingLanguage: _languageEnabled
+          ? _languageController.text.trim()
+          : null,
+      author: _authorController.text.trim(),
+      order: exerciseOrder,
+      type: _selectedType,
+      difficulty: _selectedDifficulty,
+
+      board: ExerciseBoard(
+        logicalWidth: 1000,
+        logicalHeight: 700,
+        showGrid: false,
+        allowElementMovement: false,
+        allowConnections: false,
+        elements: List<BoardElement>.unmodifiable(
+          _boardElements,
+        ),
+        connections: const <BoardConnection>[],
+      ),
+
+      alternatives:
+      List<ExerciseAlternative>.unmodifiable(
+        _alternatives,
+      ),
+
+      answerKey: ExerciseAnswerKey(
+        placements: Map<String, String>.unmodifiable(
+          _answerPlacements,
+        ),
+      ),
+
+      positiveFeedback:
+      'Excelente! Você acertou a atividade!',
+      negativeFeedback:
+      'Que pena! Revise a atividade e tente novamente.',
+    );
+
+    moduleStore.addExercise(
+      moduleId: moduleId,
+      exercise: newExercise,
+    );
+
     _showMessage(
-      'Quadro e gabarito validados corretamente.',
+      '${newExercise.title} cadastrada com sucesso.',
+    );
+
+    Future<void>.delayed(
+      const Duration(milliseconds: 900),
+          () {
+        if (!mounted) {
+          return;
+        }
+
+        Navigator.of(context).pop(newExercise);
+      },
     );
   }
 
@@ -561,11 +642,9 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
                                 const SizedBox(width: 15),
                                 Expanded(
                                   child: _PrimaryButton(
-                                    text: 'Continuar',
-                                    icon: Icons
-                                        .arrow_forward_rounded,
-                                    onPressed:
-                                    _validateBasicInformation,
+                                    text: 'Salvar',
+                                    icon: Icons.save_rounded,
+                                    onPressed: _saveExercise,
                                   ),
                                 ),
                               ],

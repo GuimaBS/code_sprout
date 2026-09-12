@@ -52,15 +52,6 @@ class AdminPage extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 7),
-                  Text(
-                    'Escolha uma área para continuar a construção do protótipo.',
-                    style: TextStyle(
-                      color: _white.withValues(alpha: 0.73),
-                      fontSize: 15,
-                      height: 1.35,
-                    ),
-                  ),
                   const SizedBox(height: 25),
                   _AdminOptionCard(
                     icon: Icons.add_task_rounded,
@@ -89,40 +80,20 @@ class AdminPage extends StatelessWidget {
                       );
                     },
                   ),
-                  const SizedBox(height: 27),
-                  Container(
-                    padding: const EdgeInsets.all(17),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF102F2D),
-                      borderRadius: BorderRadius.circular(13),
-                      border: Border.all(
-                        color: _green.withValues(alpha: 0.38),
-                      ),
-                    ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Icon(
-                          Icons.info_outline_rounded,
-                          color: _green,
-                          size: 27,
-                        ),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Este painel é demonstrativo. Novas ferramentas '
-                                'administrativas poderão ser adicionadas sem alterar '
-                                'a experiência do estudante.',
-                            style: TextStyle(
-                              color: _white,
-                              fontSize: 14,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+              const SizedBox(height: 18),
+              _AdminOptionCard(
+                icon: Icons.analytics_outlined,
+                title: 'Acompanhar resultados',
+                description:
+                'Visualize o desempenho dos alunos e gere relatórios de aprendizagem.',
+                onTap: () {
+                  _showMessage(
+                    context,
+                    'O acompanhamento de resultados será '
+                        'implementado em uma próxima etapa.',
+                  );
+                },
+              ),
                 ],
               ),
             ),
@@ -131,7 +102,6 @@ class AdminPage extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildHeader(BuildContext context) {
     return Row(
       children: <Widget>[

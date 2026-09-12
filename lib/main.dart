@@ -7,6 +7,7 @@ import 'login_page.dart';
 import 'models/exercise_model.dart';
 import 'module_completed_page.dart';
 import 'profile_page.dart';
+import 'models/learning_module.dart';
 
 void main() {
   runApp(const CodeSproutApp());
@@ -49,24 +50,371 @@ class _HomePageState extends State<HomePage> {
   static const Color greenColor = Color(0xFF00F779);
   static const Color whiteColor = Color(0xFFF4F4F4);
 
+  String? _selectedModuleId;
+
   @override
   void initState() {
     super.initState();
-    progressStore.addListener(_refreshProgress);
+
+    final List<LearningModule> modules =
+        moduleStore.modules;
+
+    if (modules.isNotEmpty) {
+      _selectedModuleId = modules.first.id;
+    }
+
+    progressStore.addListener(_refreshHome);
+    moduleStore.addListener(_refreshHome);
   }
 
   @override
   void dispose() {
-    progressStore.removeListener(_refreshProgress);
+    progressStore.removeListener(_refreshHome);
+    moduleStore.removeListener(_refreshHome);
     super.dispose();
   }
 
-  void _refreshProgress() {
+  void _refreshHome() {
     if (!mounted) {
       return;
     }
 
-    setState(() {});
+    final List<LearningModule> modules =
+        moduleStore.modules;
+
+    setState(() {
+      if (modules.isEmpty) {
+        _selectedModuleId = null;
+        return;
+      }
+
+      final bool selectedModuleStillExists =
+          moduleStore.findModule(_selectedModuleId ?? '') != null;
+
+      if (!selectedModuleStillExists) {
+        _selectedModuleId = modules.first.id;
+      }
+    });
+  }
+
+  List<ExerciseModel> _activeExercisesFor(
+      LearningModule module,
+      ) {
+    final List<ExerciseModel> exercises =
+    module.exercises
+        .where(
+          (ExerciseModel exercise) =>
+      exercise.isActive,
+    )
+        .toList();
+
+    exercises.sort(
+          (
+          ExerciseModel first,
+          ExerciseModel second,
+          ) {
+        return first.order.compareTo(second.order);
+      },
+    );
+
+    return exercises;
+  }
+
+  bool _isModuleUnlocked(
+      int moduleIndex,
+      List<LearningModule> modules,
+      ) {
+    // O primeiro módulo está sempre disponível.
+    if (moduleIndex == 0) {
+      return true;
+    }
+
+    final LearningModule previousModule =
+    modules[moduleIndex - 1];
+
+    final List<ExerciseModel> previousExercises =
+    _activeExercisesFor(previousModule);
+
+    // Um módulo vazio não libera o seguinte.
+    if (previousExercises.isEmpty) {
+      return false;
+    }
+
+    final int completedLessons =
+    progressStore.completedCount(
+      moduleId: previousModule.id,
+      exercises: previousExercises,
+    );
+
+    return completedLessons == previousExercises.length;
+  }
+
+  Future<void> _showModuleSelector() async {
+    final List<LearningModule> modules =
+        moduleStore.modules;
+
+    // Com apenas um módulo não existe lista para apresentar.
+    if (modules.length <= 1) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          child: FractionallySizedBox(
+            heightFactor: 0.65,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFF123D39),
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+                border: Border(
+                  top: BorderSide(
+                    color: greenColor,
+                    width: 2,
+                  ),
+                ),
+              ),
+              child: Column(
+                children: <Widget>[
+                  Container(
+                    width: 48,
+                    height: 5,
+                    margin: const EdgeInsets.only(
+                      top: 12,
+                      bottom: 18,
+                    ),
+                    decoration: BoxDecoration(
+                      color: whiteColor.withValues(
+                        alpha: 0.45,
+                      ),
+                      borderRadius:
+                      BorderRadius.circular(99),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 22,
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.view_module_outlined,
+                          color: greenColor,
+                          size: 30,
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'Selecionar módulo',
+                          style: TextStyle(
+                            color: whiteColor,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        0,
+                        16,
+                        24,
+                      ),
+                      itemCount: modules.length,
+                      separatorBuilder: (
+                          BuildContext context,
+                          int index,
+                          ) {
+                        return const SizedBox(height: 10);
+                      },
+                      itemBuilder: (
+                          BuildContext context,
+                          int index,
+                          ) {
+                        final LearningModule module =
+                        modules[index];
+
+                        final bool unlocked =
+                        _isModuleUnlocked(
+                          index,
+                          modules,
+                        );
+
+                        final bool selected =
+                            module.id ==
+                                _selectedModuleId;
+
+                        final String subtitle;
+
+                        if (unlocked) {
+                          subtitle = module.subject;
+                        } else {
+                          subtitle =
+                          'Conclua ${modules[index - 1].title} '
+                              'para desbloquear.';
+                        }
+
+                        return Material(
+                          color: selected
+                              ? greenColor.withValues(
+                            alpha: 0.13,
+                          )
+                              : cardColor,
+                          borderRadius:
+                          BorderRadius.circular(12),
+                          child: InkWell(
+                            onTap: unlocked
+                                ? () {
+                              setState(() {
+                                _selectedModuleId =
+                                    module.id;
+                              });
+
+                              Navigator.of(
+                                sheetContext,
+                              ).pop();
+                            }
+                                : null,
+                            borderRadius:
+                            BorderRadius.circular(12),
+                            child: Container(
+                              padding:
+                              const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                borderRadius:
+                                BorderRadius.circular(
+                                  12,
+                                ),
+                                border: Border.all(
+                                  color: selected
+                                      ? greenColor
+                                      : borderColor,
+                                  width: selected ? 2 : 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: <Widget>[
+                                  Container(
+                                    width: 46,
+                                    height: 46,
+                                    alignment:
+                                    Alignment.center,
+                                    decoration:
+                                    BoxDecoration(
+                                      color: const Color(
+                                        0xFF163F3B,
+                                      ),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: unlocked
+                                            ? greenColor
+                                            : whiteColor
+                                            .withValues(
+                                          alpha:
+                                          0.25,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      unlocked
+                                          ? Icons
+                                          .menu_book_rounded
+                                          : Icons
+                                          .lock_outline_rounded,
+                                      color: unlocked
+                                          ? greenColor
+                                          : whiteColor
+                                          .withValues(
+                                        alpha:
+                                        0.45,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                      CrossAxisAlignment
+                                          .start,
+                                      children: <Widget>[
+                                        Text(
+                                          module.title,
+                                          style: TextStyle(
+                                            color: unlocked
+                                                ? whiteColor
+                                                : whiteColor
+                                                .withValues(
+                                              alpha:
+                                              0.45,
+                                            ),
+                                            fontSize: 19,
+                                            fontWeight:
+                                            FontWeight
+                                                .w900,
+                                          ),
+                                        ),
+                                        const SizedBox(
+                                          height: 4,
+                                        ),
+                                        Text(
+                                          subtitle,
+                                          style: TextStyle(
+                                            color: whiteColor
+                                                .withValues(
+                                              alpha: unlocked
+                                                  ? 0.70
+                                                  : 0.38,
+                                            ),
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  if (selected)
+                                    const Icon(
+                                      Icons
+                                          .check_circle_rounded,
+                                      color: greenColor,
+                                    )
+                                  else if (!unlocked)
+                                    Icon(
+                                      Icons.lock_rounded,
+                                      color: whiteColor
+                                          .withValues(
+                                        alpha: 0.38,
+                                      ),
+                                    )
+                                  else
+                                    const Icon(
+                                      Icons
+                                          .chevron_right_rounded,
+                                      color: whiteColor,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void showMessage(BuildContext context, String message) {
@@ -196,42 +544,36 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final module1 = moduleStore.findModule('module-1');
+    final List<LearningModule> modules =
+        moduleStore.modules;
 
-    final List<ExerciseModel> module1Exercises =
-    module1 == null
-        ? <ExerciseModel>[]
-        : (module1.exercises
-        .where(
-          (ExerciseModel exercise) =>
-      exercise.isActive,
-    )
-        .toList()
-      ..sort(
-            (
-            ExerciseModel first,
-            ExerciseModel second,
-            ) {
-          return first.order.compareTo(second.order);
-        },
-      ));
-
-    final int module1TotalLessons =
-        module1Exercises.length;
-
-    final int module1CompletedLessons =
-    module1 == null
-        ? 0
-        : progressStore.completedCount(
-      moduleId: module1.id,
-      exercises: module1Exercises,
+    final LearningModule? selectedModule =
+    _selectedModuleId == null
+        ? (modules.isEmpty ? null : modules.first)
+        : moduleStore.findModule(
+      _selectedModuleId!,
     );
 
-    final double module1Progress =
-    module1TotalLessons == 0
+    final List<ExerciseModel> selectedExercises =
+    selectedModule == null
+        ? <ExerciseModel>[]
+        : _activeExercisesFor(selectedModule);
+
+    final int totalLessons =
+        selectedExercises.length;
+
+    final int completedLessons =
+    selectedModule == null
         ? 0
-        : module1CompletedLessons /
-        module1TotalLessons;
+        : progressStore.completedCount(
+      moduleId: selectedModule.id,
+      exercises: selectedExercises,
+    );
+
+    final double moduleProgress =
+    totalLessons == 0
+        ? 0
+        : completedLessons / totalLessons;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A2826),
@@ -264,6 +606,7 @@ class _HomePageState extends State<HomePage> {
                             height: 92,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
+                              color: const Color(0xFF102F2D),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: borderColor,
@@ -393,16 +736,36 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         Expanded(
                           child: AppButton(
-                            onTap: () {
-                              openModule(context, 'module-1');
-                            },
-                            child: Text(
-                              module1?.title ?? 'Módulo 1',
-                              style: TextStyle(
-                                color: whiteColor,
-                                fontSize: 32,
-                                fontWeight: FontWeight.w900,
-                              ),
+                            onTap: modules.length > 1
+                                ? () {
+                              _showModuleSelector();
+                            }
+                                : null,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: <Widget>[
+                                Flexible(
+                                  child: Text(
+                                    selectedModule?.title ??
+                                        'Nenhum módulo',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: whiteColor,
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                if (modules.length > 1) ...<Widget>[
+                                  const SizedBox(width: 10),
+                                  const Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    color: greenColor,
+                                    size: 32,
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ),
@@ -438,13 +801,26 @@ class _HomePageState extends State<HomePage> {
                   // ==================================================
 
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 28,
+                    ),
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
                         onTap: () {
-                          openModule(context, 'module-1');
+                          if (selectedModule == null) {
+                            showMessage(
+                              context,
+                              'Nenhum módulo está disponível.',
+                            );
+                            return;
+                          }
+
+                          openModule(
+                            context,
+                            selectedModule.id,
+                          );
                         },
                         child: Container(
                           padding: const EdgeInsets.all(25),
@@ -456,49 +832,49 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
+                            crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Row(
+                                children: <Widget>[
                                   Expanded(
                                     child: Text(
-                                      'Lógica de Programação',
-                                      style: TextStyle(
+                                      selectedModule?.subject ??
+                                          'Nenhum módulo disponível',
+                                      style: const TextStyle(
                                         color: whiteColor,
                                         fontSize: 25,
                                         fontWeight: FontWeight.w900,
                                       ),
                                     ),
                                   ),
-
-                                  Icon(
+                                  const Icon(
                                     Icons.arrow_forward_ios_rounded,
                                     color: whiteColor,
                                     size: 34,
                                   ),
                                 ],
                               ),
-
                               const SizedBox(height: 25),
-
                               ClipRRect(
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius:
+                                BorderRadius.circular(20),
                                 child: LinearProgressIndicator(
-                                  value: module1Progress,
+                                  value: moduleProgress,
                                   minHeight: 15,
-                                  backgroundColor: const Color(0xFF12423F),
-                                  valueColor: const AlwaysStoppedAnimation<Color>(
+                                  backgroundColor:
+                                  const Color(0xFF12423F),
+                                  valueColor:
+                                  const AlwaysStoppedAnimation<Color>(
                                     greenColor,
                                   ),
                                 ),
                               ),
-
                               const SizedBox(height: 12),
-
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: Text(
-                                  '${(module1Progress * 100).round()}%',
+                                  '${(moduleProgress * 100).round()}%',
                                   style: const TextStyle(
                                     color: Color(0xFFAFC7C5),
                                     fontSize: 13,
@@ -527,11 +903,19 @@ class _HomePageState extends State<HomePage> {
                           child: InformationCard(
                             title: 'Lições',
                             placeholder:
-                            '$module1CompletedLessons / $module1TotalLessons',
+                            '$completedLessons / $totalLessons',
                             onTap: () {
+                              if (selectedModule == null) {
+                                showMessage(
+                                  context,
+                                  'Nenhum módulo está disponível.',
+                                );
+                                return;
+                              }
+
                               openLessonHistory(
                                 context,
-                                'module-1',
+                                selectedModule.id,
                               );
                             },
                           ),
@@ -731,7 +1115,7 @@ class MenuButton extends StatelessWidget {
 
 class AppButton extends StatelessWidget {
   final Widget child;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final EdgeInsetsGeometry padding;
 
   const AppButton({

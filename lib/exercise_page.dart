@@ -1020,7 +1020,13 @@ class _ActionButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: Container(
             height: 58,
-            padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 16),
+            padding: EdgeInsets.symmetric(
+              horizontal: text == null
+                  ? 8
+                  : compact
+                  ? 10
+                  : 16,
+            ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFF7F7F2), width: 5),
